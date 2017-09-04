@@ -141,6 +141,37 @@ fn test_entries_remove() {
     assert!(map.is_empty());
 }
 #[test]
+fn test_entry_refresh() {
+    let mut map = LinkedHashMap::new();
+    assert_eq!(format!("{:?}", map), "{}");
+
+    map.entry(1).refresh_or_insert(10);
+    assert_eq!(format!("{:?}", map), "{1: 10}");
+    map.entries().next().unwrap().refresh();
+    assert_eq!(format!("{:?}", map), "{1: 10}");
+
+    map.entry(2).refresh_or_insert_with(|| 20);
+    assert_eq!(format!("{:?}", map), "{1: 10, 2: 20}");
+
+    match map.entry(2) {
+        Entry::Occupied(mut entry) => entry.refresh(),
+        _ => panic!(),
+    }
+    assert_eq!(format!("{:?}", map), "{1: 10, 2: 20}");
+
+    match map.entry(1) {
+        Entry::Occupied(mut entry) => entry.refresh(),
+        _ => panic!(),
+    }
+    assert_eq!(format!("{:?}", map), "{2: 20, 1: 10}");
+
+    map.entry(2).refresh_or_insert(20);
+    assert_eq!(format!("{:?}", map), "{1: 10, 2: 20}");
+
+    map.entry(0);
+    assert_eq!(format!("{:?}", map), "{1: 10, 2: 20}");
+}
+#[test]
 fn entries_insert() {
     let mut map = LinkedHashMap::new();
     map.insert(0, 0);

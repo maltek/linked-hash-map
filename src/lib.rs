@@ -1195,11 +1195,32 @@ impl<'a, K: Hash + Eq, V, S: BuildHasher> Entry<'a, K, V, S> {
         }
     }
 
+    /// Ensures a value is in the entry by inserting the default if empty, and returns
+    /// a mutable reference to the value in the entry.
+    ///
+    /// Moves an existing entry to the end of the map.
+    pub fn refresh_or_insert(self, default: V) -> &'a mut V {
+        match self {
+            Entry::Occupied(mut entry) => { entry.refresh(); entry.into_mut() },
+            Entry::Vacant(entry) => entry.insert(default),
+        }
+    }
+
     /// Ensures a value is in the entry by inserting the result of the default function if empty,
     /// and returns a mutable reference to the value in the entry.
     pub fn or_insert_with<F: FnOnce() -> V>(self, default: F) -> &'a mut V {
         match self {
             Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => entry.insert(default()),
+        }
+    }
+    /// Ensures a value is in the entry by inserting the result of the default function if empty,
+    /// and returns a mutable reference to the value in the entry.
+    ///
+    /// Moves an existing entry to the end of the map.
+    pub fn refresh_or_insert_with<F: FnOnce() -> V>(self, default: F) -> &'a mut V {
+        match self {
+            Entry::Occupied(mut entry) => { entry.refresh(); entry.into_mut() },
             Entry::Vacant(entry) => entry.insert(default()),
         }
     }
@@ -1238,7 +1259,8 @@ impl<'a, K: Hash + Eq, V, S: BuildHasher> OccupiedEntry<'a, K, V, S> {
         unsafe { &mut (*self.entry).value }
     }
 
-    /// Sets the value of the entry, and returns the entry's old value
+    /// Sets the value of the entry, and returns the entry's old value. Also moves this entry to
+    /// the end of the map.
     pub fn insert(&mut self, value: V) -> V {
         unsafe {
             (*self.map).ensure_guard_node();
@@ -1251,6 +1273,17 @@ impl<'a, K: Hash + Eq, V, S: BuildHasher> OccupiedEntry<'a, K, V, S> {
             (*self.map).attach(node_ptr);
 
             old_val
+        }
+    }
+
+    /// Moves this entry to the end of the list.
+    pub fn refresh(&mut self) {
+        let node_ptr: *mut Node<K, V> = self.entry;
+
+        unsafe {
+            // Existing node, just update LRU position
+            (*self.map).detach(node_ptr);
+            (*self.map).attach(node_ptr);
         }
     }
 
